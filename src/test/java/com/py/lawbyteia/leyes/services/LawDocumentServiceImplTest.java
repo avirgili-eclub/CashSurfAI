@@ -33,12 +33,6 @@ public class LawDocumentServiceImplTest {
     @Autowired
     private LawDocumentRepository lawDocumentRepository;
 
-    @Mock  // Reemplazo de @MockBean
-    private EmbeddingService embeddingService;
-
-    @InjectMocks  // Inyecta los mocks en la clase de prueba
-    private LawDocumentServiceImpl lawDocumentServiceWithMocks;
-
     @Test
     public void testProcessUploadedPdf() throws Exception {
 

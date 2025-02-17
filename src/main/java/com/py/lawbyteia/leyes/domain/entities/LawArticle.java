@@ -1,8 +1,10 @@
 package com.py.lawbyteia.leyes.domain.entities;
 
 import com.py.lawbyteia.ai.configuration.PgVectorConverter;
+import com.py.lawbyteia.ai.configuration.PgVectorType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Type;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,10 +28,9 @@ public class LawArticle {
     @JoinColumn(name = "law_document_id")
     private LawDocument lawDocument;
 
-    @Convert(converter = PgVectorConverter.class)
-    @Column(columnDefinition = "vector(1536)")
-    @ElementCollection
-    @CollectionTable(name = "law_article_direct_embedding") // nombre diferente
+    @Type(PgVectorType.class)
+    @Column(name = "embedding", columnDefinition = "vector(1536)")
+//    @CollectionTable(name = "law_article_embedding")
     private List<Float> embedding = new ArrayList<>();
 
 }

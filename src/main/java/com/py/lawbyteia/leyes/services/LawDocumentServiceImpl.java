@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -132,8 +133,12 @@ public class LawDocumentServiceImpl implements LawDocumentService {
             // 2. Parsear los artículos del texto
             List<LawArticle> articles = extractArticles(text);
 
-            // 3. Crear el LawDocument con metadatos
-            LawDocument lawDocument = LawDocument.builder()
+            Optional<LawDocument> lawDocumentExist = lawDocumentRepository.findByTitle(metadata.getTitle());
+
+            boolean exists = lawDocumentExist.isPresent();
+
+            // 3. Crear el LawDocument con metadatos si no existe
+            LawDocument lawDocument = lawDocumentExist.orElse(LawDocument.builder()
                     .title(metadata.getTitle())
                     .content(text)
                     .publicationDate(metadata.getPublicationDate())
@@ -143,13 +148,15 @@ public class LawDocumentServiceImpl implements LawDocumentService {
                     .keywords(metadata.getKeywords())
                     .isActive(true)
                     .cantArticles(articles.size())
-                    .build();
+                    .build());
 
-            // 4. Guardar en la base de datos
-            lawDocument = lawDocumentRepository.save(lawDocument);
+            if (!exists) {
+                // 4. Guardar en la base de datos
+                lawDocument = lawDocumentRepository.save(lawDocument);
 
-            // 5. Guardar los artículos asociados
-            lawArticleService.saveArticles(articles, lawDocument);
+                // 5. Guardar los artículos asociados
+                lawArticleService.saveArticles(articles, lawDocument);
+            }
 
             // 6. Generar embeddings para la ley
             embeddingService.processAndStoreLawDocument(lawDocument.getId());

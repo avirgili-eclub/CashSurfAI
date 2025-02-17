@@ -1,8 +1,10 @@
 package com.py.lawbyteia.leyes.domain.entities;
 
+import com.py.lawbyteia.ai.configuration.PgVectorType;
 import com.py.lawbyteia.leyes.domain.Enums.CaseStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Type;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -39,10 +41,11 @@ public class LegalCase {
     @JoinColumn(name = "law_document_id")
     private LawDocument lawDocument;
 
-    @Column(columnDefinition = "vector(1536)")
-    @ElementCollection
-    @CollectionTable(name = "law_legal_case_direct_embedding") // nombre diferente
-    private List<Float > embedding = new ArrayList<>();
+    @Type(PgVectorType.class)
+    @Column(name = "embedding", columnDefinition = "vector(1536)")
+//    @ElementCollection
+//    @CollectionTable(name = "law_legal_case_direct_embedding") // nombre diferente
+    private List<Float> embedding = new ArrayList<>();
 
     // Getters and setters
 }

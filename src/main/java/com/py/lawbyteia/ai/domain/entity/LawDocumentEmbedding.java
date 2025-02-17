@@ -1,9 +1,11 @@
 package com.py.lawbyteia.ai.domain.entity;
 
 import com.py.lawbyteia.ai.configuration.PgVectorConverter;
+import com.py.lawbyteia.ai.configuration.PgVectorType;
 import com.py.lawbyteia.leyes.domain.entities.LawDocument;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Type;
 
 import java.util.List;
 
@@ -24,8 +26,8 @@ public class LawDocumentEmbedding {
     @JoinColumn(name = "law_document_id", nullable = false)
     private LawDocument lawDocument;
 
+    @Type(PgVectorType.class)
     @Column(name = "embedding", columnDefinition = "vector(1536)", nullable = false)
-    @Convert(converter = PgVectorConverter.class) // Usando el convertidor
     private List<Float> embedding; // Se almacena como un vector en PostgreSQL con pgvector
 
     @Column(name = "created_at", updatable = false)
