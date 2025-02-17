@@ -1,6 +1,5 @@
 package com.py.lawbyteia.ai.configuration;
 
-import org.hibernate.HibernateException;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.usertype.UserType;
 import org.postgresql.util.PGobject;
@@ -11,8 +10,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class PgVectorType implements UserType<List<Float>> {
 
@@ -61,23 +62,31 @@ public class PgVectorType implements UserType<List<Float>> {
     @Override
     public void nullSafeSet(PreparedStatement st, List<Float> value, int index, SharedSessionContractImplementor session)
             throws SQLException {
-        if (value == null) {
-            st.setNull(index, Types.OTHER);
-            return;
+        if (value == null || value.isEmpty()) {
+            value = Collections.nCopies(1536, 0.0f); // Asignar vector de ceros si está vacío
         }
 
         // Convert List<Float> to PostgreSQL vector format
-        String vectorString = "[" + String.join(",",
-                value.stream()
-                        .map(String::valueOf)
-                        .toList())
-                + "]";
+        String vectorString = "[" + value.stream().map(String::valueOf).collect(Collectors.joining(",")) + "]";
 
         PGobject pgObject = new PGobject();
         pgObject.setType("vector");
         pgObject.setValue(vectorString);
 
         st.setObject(index, pgObject);
+
+//        // Convert List<Float> to PostgreSQL vector format
+//        String vectorString = "[" + String.join(",",
+//                value.stream()
+//                        .map(String::valueOf)
+//                        .toList())
+//                + "]";
+//
+//        PGobject pgObject = new PGobject();
+//        pgObject.setType("vector");
+//        pgObject.setValue(vectorString);
+//
+//        st.setObject(index, pgObject);
     }
 
     @Override

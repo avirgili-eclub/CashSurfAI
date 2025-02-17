@@ -40,12 +40,22 @@ public class LawArticleService {
             log.warn("No se proporcionaron artículos para guardar.");
             return;
         }
-
+        int count = 0;
         // Asocia cada artículo con su LawDocument
         for (LawArticle article : articles) {
+            count++;
             article.setLawDocument(lawDocument);
-        }
+            // Generar embedding si está vacío o nulo
+            if (article.getEmbedding() == null || article.getEmbedding().isEmpty()) {
+                List<Float> embedding = embeddingService.generateEmbedding(article.getContent());
 
+                if (embedding == null || embedding.size() != 1536) {
+                    throw new RuntimeException("El embedding generado no tiene 1536 dimensiones.");
+                }
+                article.setEmbedding(embedding);
+            }
+            log.info("Procesando artículo {} - ID: {}", count, article.getId());
+        }
         // Guardar en la base de datos
         lawArticleRepository.saveAll(articles);
         log.info("Se guardaron {} artículos para la ley ID {}", articles.size(), lawDocument.getId());

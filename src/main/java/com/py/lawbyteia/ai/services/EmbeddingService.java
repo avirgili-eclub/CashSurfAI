@@ -78,7 +78,7 @@ public class EmbeddingService {
     public List<Float> generateEmbedding(String text) {
         if (text == null || text.isBlank()) {
             log.warn("El texto para generar embedding está vacío");
-            return Collections.emptyList();
+            return Collections.nCopies(1536, 0.0f); // Retorna un vector de ceros en lugar de null
         }
 
         HttpHeaders headers = new HttpHeaders();
@@ -98,14 +98,16 @@ public class EmbeddingService {
             );
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                List<Float> embedding = response.getBody().getEmbedding();
+                log.info("Embedding size is: {}", embedding.size());
                 return response.getBody().getEmbedding();
             } else {
                 log.error("Error al obtener embeddings de Ollama. Código de respuesta: {}", response.getStatusCode());
-                return Collections.emptyList();
+                return Collections.nCopies(1536, 0.0f);
             }
         } catch (Exception e) {
             log.error("Error al comunicarse con la API de Ollama", e);
-            return Collections.emptyList();
+            return Collections.nCopies(1536, 0.0f);
         }
     }
 }
