@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface LawDocumentRepository  extends JpaRepository<LawDocument, Long> {
+public interface LawDocumentRepository extends JpaRepository<LawDocument, Long> {
     List<LawDocument> findByTitleContaining(String keyword);
 
     Optional<LawDocument> findByTitle(String title);
@@ -36,9 +36,34 @@ public interface LawDocumentRepository  extends JpaRepository<LawDocument, Long>
     List<LawDocument> findByIsActive(Boolean isActive);
 
     // Búsqueda por similitud de contenido
-    @Query(value = "SELECT * FROM law_document ORDER BY document_embedding <-> :queryEmbedding LIMIT :limit",
-            nativeQuery = true)
-    List<LawDocument> findSimilarDocuments(List<Float> queryEmbedding, int limit);
+    //1
+//    @Query(value = "SELECT * FROM law_document ORDER BY document_embedding <-> :queryEmbedding LIMIT :limit",
+//            nativeQuery = true)
+//    @Query(value = "SELECT ld.* FROM law_document ld " +
+//            "JOIN law_document_embedding lde ON ld.id = lde.law_document_id " +
+//            "ORDER BY lde.embedding <-> :queryEmbedding " +
+//            "LIMIT :limit", nativeQuery = true)
+//    List<LawDocument> findSimilarDocuments(List<Float> queryEmbedding, int limit);
+    //2
+    @Query(value = """
+            SELECT ld.*
+            FROM law_document ld
+            JOIN law_document_embedding lde
+            ON ld.id = lde.law_document_id
+            ORDER BY lde.embedding <-> CAST(:queryEmbedding AS vector)
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<LawDocument> findSimilarDocuments(@Param("queryEmbedding") String queryEmbedding, @Param("limit") int limit);
+
+//    @Query(value = """
+//    SELECT ld.*
+//    FROM law_document ld
+//    JOIN law_document_embedding lde
+//    ON ld.id = lde.law_document_id
+//    ORDER BY lde.embedding <-> :queryEmbedding
+//    LIMIT :limit
+//    """, nativeQuery = true)
+//    List<LawDocument> findSimilarDocuments(@Param("queryEmbedding") List<Float> queryEmbedding, @Param("limit") int limit);
 
     // Documentos más recientes
     @Query("SELECT ld FROM LawDocument ld ORDER BY ld.publicationDate DESC")

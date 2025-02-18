@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +40,12 @@ public class LegalCaseService {
     }
 
     public List<LegalCase> findSimilarCases(List<Float> queryEmbedding, int limit) {
-        return legalCaseRepository.findSimilarCases(queryEmbedding, limit);
+        // Convertimos la lista de floats a un string en formato de vector de PostgreSQL
+        String vectorString = "[" + queryEmbedding.stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining(",")) + "]";
+
+        return legalCaseRepository.findSimilarCases(vectorString, limit);
     }
 
     public List<LegalCase> findByDateRange(LocalDateTime startDate, LocalDateTime endDate) {

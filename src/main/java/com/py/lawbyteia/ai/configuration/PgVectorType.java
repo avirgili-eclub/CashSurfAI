@@ -74,19 +74,6 @@ public class PgVectorType implements UserType<List<Float>> {
         pgObject.setValue(vectorString);
 
         st.setObject(index, pgObject);
-
-//        // Convert List<Float> to PostgreSQL vector format
-//        String vectorString = "[" + String.join(",",
-//                value.stream()
-//                        .map(String::valueOf)
-//                        .toList())
-//                + "]";
-//
-//        PGobject pgObject = new PGobject();
-//        pgObject.setType("vector");
-//        pgObject.setValue(vectorString);
-//
-//        st.setObject(index, pgObject);
     }
 
     @Override

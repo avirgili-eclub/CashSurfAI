@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -62,7 +63,12 @@ public class LawArticleService {
     }
 
     public List<LawArticle> findSimilarArticles(List<Float> queryEmbedding, int limit) {
-        return lawArticleRepository.findMostSimilarArticles(queryEmbedding, limit);
+        // Convertimos la lista de floats a un string en formato de vector de PostgreSQL
+        String vectorString = "[" + queryEmbedding.stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining(",")) + "]";
+
+        return lawArticleRepository.findMostSimilarArticles(vectorString, limit);
     }
 
     public List<LawArticle> findByContent(String keyword) {

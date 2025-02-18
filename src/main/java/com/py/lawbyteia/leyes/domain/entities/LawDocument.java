@@ -36,12 +36,6 @@ public class LawDocument {
     @ElementCollection
     private List<String> keywords = new ArrayList<>();
     private String summary;
-
-//    @Column(columnDefinition = "vector(1536)")
-//    @ElementCollection
-//    @CollectionTable(name = "law_document_direct_embedding") // nombre diferente
-//    private List<Float> embedding = new ArrayList<>();
-
     private Integer cantArticles;
 
     @ElementCollection

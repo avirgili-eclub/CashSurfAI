@@ -12,12 +12,12 @@ spring:
     properties:
       hibernate:
         format_sql: true
-
+        show_sql: true
   ai:
     ollama:
       base-url: http://localhost:11434
       embedding:
-        model: deepseek
+        model: deepseek-r1:1.5b
 #    vectorstore:
 #      pgvector:
 #      index-type: HNSW

@@ -45,11 +45,11 @@ public class LawSearchService {
         //TODO: Buscar en LawDocuments
         List<LawDocument> documents = lawDocumentServiceImpl.findSimilarDocuments(queryEmbedding, 3);
         List<LawArticle> articles = lawArticleService.findSimilarArticles(queryEmbedding, 3);
-        List<LegalCase> cases = legalCaseService.findSimilarCases(queryEmbedding, 2);
+        //List<LegalCase> cases = legalCaseService.findSimilarCases(queryEmbedding, 2);
 
         return SearchResult.builder()
                 .relevantArticles(articles)
-                .relevantCases(cases)
+                //.relevantCases(cases)
                 .relevantDocuments(documents)
                 .build();
     }
@@ -82,7 +82,7 @@ public class LawSearchService {
         }
 
         // Casos precedentes si existen
-        if (!searchResult.getRelevantCases().isEmpty()) {
+        if (searchResult.getRelevantCases() != null && !searchResult.getRelevantCases().isEmpty()) {
             prompt.append("Casos Relacionados:\n");
             for (LegalCase legalCase : searchResult.getRelevantCases()) {
                 prompt.append("Caso ").append(legalCase.getCaseNumber())

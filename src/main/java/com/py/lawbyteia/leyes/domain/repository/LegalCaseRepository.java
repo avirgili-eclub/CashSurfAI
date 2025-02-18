@@ -5,6 +5,7 @@ import com.py.lawbyteia.leyes.domain.entities.LegalCase;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -22,10 +23,18 @@ public interface LegalCaseRepository extends JpaRepository<LegalCase, Long> {
     // Búsqueda por rango de fechas
     List<LegalCase> findByRulingDateBetween(LocalDateTime startDate, LocalDateTime endDate);
 
-    // Búsqueda por similitud de contenido usando embeddings
-    @Query(value = "SELECT * FROM legal_case ORDER BY case_embedding <-> :queryEmbedding LIMIT :limit",
-            nativeQuery = true)
-    List<LegalCase> findSimilarCases(List<Float> queryEmbedding, int limit);
+//    // Búsqueda por similitud de contenido usando embeddings
+//    @Query(value = "SELECT * FROM legal_case ORDER BY case_embedding <-> :queryEmbedding LIMIT :limit",
+//            nativeQuery = true)
+//    List<LegalCase> findSimilarCases(List<Float> queryEmbedding, int limit);
+// Búsqueda por similitud de contenido en casos legales
+@Query(value = """
+    SELECT * 
+    FROM legal_case 
+    ORDER BY case_embedding <-> CAST(:queryEmbedding AS vector) 
+    LIMIT :limit
+    """, nativeQuery = true)
+List<LegalCase> findSimilarCases(@Param("queryEmbedding") String queryEmbedding, @Param("limit") int limit);
 
     // Búsqueda por palabras clave en la descripción
     List<LegalCase> findByDescriptionContainingIgnoreCase(String keyword);

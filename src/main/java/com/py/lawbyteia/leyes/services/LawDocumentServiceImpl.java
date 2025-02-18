@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -54,7 +55,13 @@ public class LawDocumentServiceImpl implements LawDocumentService {
 
     @Override
     public List<LawDocument> findSimilarDocuments(List<Float> queryEmbedding, int limit) {
-        return lawDocumentRepository.findSimilarDocuments(queryEmbedding, limit);
+
+        // Convertimos la lista de floats a un string en formato de vector de PostgreSQL
+        String vectorString = "[" + queryEmbedding.stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining(",")) + "]";
+
+        return lawDocumentRepository.findSimilarDocuments(vectorString, limit);
     }
 
     @Override
