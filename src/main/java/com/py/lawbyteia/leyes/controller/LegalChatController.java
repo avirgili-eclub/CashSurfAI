@@ -15,6 +15,7 @@ import org.springframework.ai.ollama.management.ModelManagementOptions;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -45,8 +46,8 @@ public class LegalChatController {
 
 
         // Configurar las opciones para el modelo correcto
-        OllamaChatModel chatModel = new OllamaChatModel(ollamaApi, ollamaOptions,null,
-                toolFunctionCallbacks,observationRegistry,modelManagementOptions);
+        OllamaChatModel chatModel = new OllamaChatModel(ollamaApi, ollamaOptions, null,
+                toolFunctionCallbacks, observationRegistry, modelManagementOptions);
 
         this.chatClient = ChatClient.builder(chatModel, ObservationRegistry.NOOP, null).build();
     }
@@ -57,22 +58,7 @@ public class LegalChatController {
         try {
             // Usar LawSearchService para obtener el contexto legal relevante
             String legalContext = lawSearchService.processLegalQuery(request.getQuestion());
-
-//            String prompt = """
-//                    Eres un asistente legal especializado. Utiliza el siguiente contexto legal para responder la pregunta del usuario.
-//                    Si la información no es suficiente o no está relacionada, indica que necesitas más detalles.
-//
-//                    Contexto Legal:
-//                    %s
-//
-//                    Pregunta del usuario: %s
-//                    """.formatted(legalContext, request.getQuestion());
             String prompt = """
-                    You are a specialized legal assistant. Please use the following legal context to answer the user's question.
-                    If the information is not sufficient or is not related, please indicate that you need more details.
-                    
-                    
-                    Legal Context:
                     %s
                     
                     User Question: %s
@@ -99,6 +85,43 @@ public class LegalChatController {
         }
     }
 
+    @PostMapping(value = "/ask-stream", produces = "text/event-stream")
+    public Flux<String> askLegalQuestionStreaming(@RequestBody ChatLawRequest request) {
+        String legalContext = lawSearchService.processLegalQuery(request.getQuestion());
+        String prompt = """
+                %s
+                User Question: %s
+                """.formatted(legalContext, request.getQuestion());
+
+        // Usamos 'stream()' para obtener respuestas reactivas en tiempo real
+        // Devuelve el Flux de respuesta sin suscribir directamente aquí
+        return Flux.create(sink -> {
+            try {
+                var responseStream = chatClient.prompt()
+                        .user(prompt)
+                        .stream(); // Usamos 'stream'
+
+                responseStream.content()
+                        .doOnNext(content -> {
+                            log.info("Tipo de contenido: {}", content.getClass().getName());
+                            sink.next(content);
+
+                        })
+                        .doOnTerminate(sink::complete)
+                        .subscribe();  // No suscribimos aquí, Spring WebFlux se encarga
+            } catch (Exception e) {
+                log.error("Error al procesar la pregunta legal: {}", request.getQuestion(), e);
+                // Emitir una respuesta de error en caso de excepción
+                sink.next("Lo siento, hubo un error procesando tu consulta.");
+                sink.complete();
+            }
+        });
+    }
+
+
+//    @PostMapping(value = "/ask-stream", produces = "text/event-stream")
+//    public Flux<String> askLegalQuestionStreaming(@RequestBody ChatLawRequest request) {
+//    }
 
 
     @GetMapping("/ask")

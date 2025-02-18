@@ -37,14 +37,15 @@ public class LawSearchService {
         String prompt = buildLegalPrompt(searchResult, userQuery);
 
         // 4. Obtener respuesta del modelo
-        return ollamaService.askDeepSeek(prompt, userQuery);
+//        return ollamaService.askDeepSeek(prompt, userQuery);
+        return prompt;
     }
 
     private SearchResult findRelevantLegalInformation(List<Float> queryEmbedding, String query) {
         // Buscar en múltiples fuentes
         //TODO: Buscar en LawDocuments
         List<LawDocument> documents = lawDocumentServiceImpl.findSimilarDocuments(queryEmbedding, 3);
-        List<LawArticle> articles = lawArticleService.findSimilarArticles(queryEmbedding, 3);
+        List<LawArticle> articles = lawArticleService.findSimilarArticles(queryEmbedding, 5);
         //List<LegalCase> cases = legalCaseService.findSimilarCases(queryEmbedding, 2);
 
         return SearchResult.builder()
