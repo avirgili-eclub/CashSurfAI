@@ -4,13 +4,21 @@ import com.py.lawbyteia.leyes.domain.dto.ChatLawRequest;
 import com.py.lawbyteia.leyes.domain.dto.ChatLawResponse;
 import com.py.lawbyteia.leyes.domain.record.LegalResponse;
 import com.py.lawbyteia.leyes.services.LawSearchService;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.model.function.FunctionCallback;
+import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.ai.ollama.api.OllamaApi;
+import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.ai.ollama.management.ModelManagementOptions;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/legal/chat")
@@ -22,7 +30,25 @@ public class LegalChatController {
 
     public LegalChatController(LawSearchService lawSearchService, ChatClient.Builder chatClient) {
         this.lawSearchService = lawSearchService;
-        this.chatClient = chatClient.build();
+
+        OllamaApi ollamaApi = new OllamaApi("http://localhost:11434");
+
+        OllamaOptions ollamaOptions = OllamaOptions.builder()
+                .model("deepseek-r1:1.5b")// Opcional: Configura la temperatura si lo necesitas
+                .build();
+
+        // ✅ Pasar los nuevos parámetros requeridos
+//        FunctionCallbackResolver functionCallbackResolver = new FunctionCallbackResolver(Collections.emptyList());
+        List<FunctionCallback> toolFunctionCallbacks = Collections.emptyList();
+        ObservationRegistry observationRegistry = ObservationRegistry.NOOP;
+        ModelManagementOptions modelManagementOptions = ModelManagementOptions.defaults(); // Nuevo en M5
+
+
+        // Configurar las opciones para el modelo correcto
+        OllamaChatModel chatModel = new OllamaChatModel(ollamaApi, ollamaOptions,null,
+                toolFunctionCallbacks,observationRegistry,modelManagementOptions);
+
+        this.chatClient = ChatClient.builder(chatModel, ObservationRegistry.NOOP, null).build();
     }
 
 
@@ -32,14 +58,24 @@ public class LegalChatController {
             // Usar LawSearchService para obtener el contexto legal relevante
             String legalContext = lawSearchService.processLegalQuery(request.getQuestion());
 
+//            String prompt = """
+//                    Eres un asistente legal especializado. Utiliza el siguiente contexto legal para responder la pregunta del usuario.
+//                    Si la información no es suficiente o no está relacionada, indica que necesitas más detalles.
+//
+//                    Contexto Legal:
+//                    %s
+//
+//                    Pregunta del usuario: %s
+//                    """.formatted(legalContext, request.getQuestion());
             String prompt = """
-                    Eres un asistente legal especializado. Utiliza el siguiente contexto legal para responder la pregunta del usuario.
-                    Si la información no es suficiente o no está relacionada, indica que necesitas más detalles.
+                    You are a specialized legal assistant. Please use the following legal context to answer the user's question.
+                    If the information is not sufficient or is not related, please indicate that you need more details.
                     
-                    Contexto Legal:
+                    
+                    Legal Context:
                     %s
                     
-                    Pregunta del usuario: %s
+                    User Question: %s
                     """.formatted(legalContext, request.getQuestion());
 
             var response = chatClient.prompt()

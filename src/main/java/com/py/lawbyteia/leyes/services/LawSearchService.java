@@ -58,8 +58,10 @@ public class LawSearchService {
         StringBuilder prompt = new StringBuilder();
 
         // Instrucciones para el modelo
-        prompt.append("Eres un asistente legal especializado. Analiza la siguiente información y proporciona una respuesta clara y fundamentada. ");
-        prompt.append("Cita las leyes y los artículos específicos cuando sea relevante.\n\n");
+//        prompt.append("Eres un asistente legal especializado. Analiza la siguiente información y proporciona una respuesta clara y fundamentada. ");
+        prompt.append("You are a specialized paralegal. Please analyze the following information and provide a clear and reasoned response.");
+//        prompt.append("Cita las leyes y los artículos específicos cuando sea relevante.\n\n");
+        prompt.append("Cite specific laws and articles where relevant.\n\n");
 
         // Documentos legales completos
         if (!searchResult.getRelevantDocuments().isEmpty()) {
@@ -91,14 +93,19 @@ public class LawSearchService {
         }
 
         // Consulta del usuario
-        prompt.append("Consulta del Usuario:\n").append(userQuery).append("\n\n");
+        prompt.append("User Query:\n").append(userQuery).append("\n\n");
 
         // Instrucciones específicas para la respuesta
-        prompt.append("Por favor, proporciona una respuesta que:\n");
-        prompt.append("1. Explique el marco legal aplicable\n");
-        prompt.append("2. Cite artículos específicos relevantes\n");
-        prompt.append("3. Mencione casos similares si aplica\n");
-        prompt.append("4. Ofrezca una conclusión clara\n");
+//        prompt.append("Por favor, proporciona una respuesta que:\n");
+        prompt.append("Please provide an answer that\n");
+//        prompt.append("1. Explique el marco legal aplicable\n");
+        prompt.append("1. Explain the applicable legal framework\n");
+//        prompt.append("2. Cite artículos específicos relevantes\n");
+        prompt.append("2. Cite relevant specific articles\n");
+//        prompt.append("3. Mencione casos similares si aplica\n");
+        prompt.append("3. Mention similar cases if applicable\n");
+//        prompt.append("4. Ofrezca una conclusión clara\n");
+        prompt.append("4. Offer a clear conclusion\n");
 
         return prompt.toString();
     }
