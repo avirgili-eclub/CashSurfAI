@@ -86,7 +86,7 @@ public class EmbeddingService {
 
         // Crear un objeto con la estructura JSON
         Map<String, String> requestBodyMap = new HashMap<>();
-        requestBodyMap.put("model", "deepseek-r1:1.5b");
+        requestBodyMap.put("model", "deepseek-r1:7b");
         requestBodyMap.put("prompt", text);
         // Llamada a la API de Ollama
         try {
