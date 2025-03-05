@@ -17,7 +17,7 @@ spring:
     ollama:
       base-url: http://localhost:11434
       embedding:
-        model: deepseek-r1:1.5b
+        model: deepseek-r1:7b
 #    vectorstore:
 #      pgvector:
 #      index-type: HNSW
