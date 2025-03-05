@@ -35,7 +35,7 @@ public class LegalChatController {
         OllamaApi ollamaApi = new OllamaApi("http://localhost:11434");
 
         OllamaOptions ollamaOptions = OllamaOptions.builder()
-                .model("deepseek-r1:1.5b")// Opcional: Configura la temperatura si lo necesitas
+                .model("deepseek-r1:7b")// Opcional: Configura la temperatura si lo necesitas
                 .build();
 
         // ✅ Pasar los nuevos parámetros requeridos
@@ -61,11 +61,14 @@ public class LegalChatController {
             String prompt = """
                     %s
                     
-                    User Question: %s
+                    Pregunta del usuario: %s
                     """.formatted(legalContext, request.getQuestion());
 
+            log.info("El legal context es: {}", legalContext);
+            log.info("El prompt es: {}", prompt);
+
             var response = chatClient.prompt()
-                    .user(prompt)
+                    .user(legalContext)
                     .call();
 
             return ResponseEntity.ok(new ChatLawResponse(

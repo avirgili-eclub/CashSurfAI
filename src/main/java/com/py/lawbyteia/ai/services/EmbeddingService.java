@@ -8,6 +8,8 @@ import com.py.lawbyteia.ai.domain.repository.LawDocumentEmbeddingRepository;
 import com.py.lawbyteia.leyes.domain.entities.LawDocument;
 import com.py.lawbyteia.leyes.domain.repository.LawDocumentRepository;
 import jakarta.transaction.Transactional;
+import lombok.extern.log4j.Log4j;
+import lombok.extern.log4j.Log4j2;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -22,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@Slf4j
+@Log4j2
 public class EmbeddingService {
 
     private static final String OLLAMA_EMBEDDING_URL = "http://localhost:11434/api/embeddings";

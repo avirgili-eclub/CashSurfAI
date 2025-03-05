@@ -15,7 +15,7 @@ public class OllamaService {
 
     public String askDeepSeek(String context, String query) {
         Map<String, Object> payload = new HashMap<>();
-        payload.put("model", "deepseek-r1:1.5b"); // Usa tu modelo descargado en Ollama
+        payload.put("model", "deepseek-r1:7b"); // Usa tu modelo descargado en Ollama
         payload.put("prompt", "IMPORTANT - Use the following legal information to answer in spanish: " + context + "\nQuestion: " + query);
 
         return restTemplate.postForObject(OLLAMA_URL, payload, String.class);

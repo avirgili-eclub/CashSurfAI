@@ -1,6 +1,5 @@
 package com.py.lawbyteia.leyes.domain.entities;
 
-import com.py.lawbyteia.ai.configuration.PgVectorConverter;
 import com.py.lawbyteia.ai.configuration.PgVectorType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -29,7 +28,8 @@ public class LawArticle {
     private LawDocument lawDocument;
 
     @Type(PgVectorType.class)
-    @Column(name = "embedding", columnDefinition = "vector(1536)")
+//    @Column(name = "embedding", columnDefinition = "vector(1536)")
+    @Column(name = "embedding", columnDefinition = "vector(3584)")
 //    @CollectionTable(name = "law_article_embedding")
     private List<Float> embedding = new ArrayList<>();
 

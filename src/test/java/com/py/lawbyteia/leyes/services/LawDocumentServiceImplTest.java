@@ -1,13 +1,10 @@
 package com.py.lawbyteia.leyes.services;
 
-import com.py.lawbyteia.ai.services.EmbeddingService;
 import com.py.lawbyteia.leyes.domain.dto.LawDocumentUploadRequest;
 import com.py.lawbyteia.leyes.domain.entities.LawDocument;
 import com.py.lawbyteia.leyes.domain.repository.LawDocumentRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
@@ -34,7 +31,7 @@ public class LawDocumentServiceImplTest {
     private LawDocumentRepository lawDocumentRepository;
 
     @Test
-    public void testProcessUploadedPdf() throws Exception {
+    public void testProcessUploadedPdf() {
 
         String nombreArchivo = "Codigo Civil Ley 1183-85.pdf"; // Cambiamos el nombre del archivo aquí
         byte[] archivo = obtenerArchivoComoBytes("C:/temp/" + nombreArchivo);

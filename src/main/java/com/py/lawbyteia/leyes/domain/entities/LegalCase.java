@@ -42,7 +42,8 @@ public class LegalCase {
     private LawDocument lawDocument;
 
     @Type(PgVectorType.class)
-    @Column(name = "embedding", columnDefinition = "vector(1536)")
+//    @Column(name = "embedding", columnDefinition = "vector(1536)")
+    @Column(name = "embedding", columnDefinition = "vector(3584)")
 //    @ElementCollection
 //    @CollectionTable(name = "law_legal_case_direct_embedding") // nombre diferente
     private List<Float> embedding = new ArrayList<>();
