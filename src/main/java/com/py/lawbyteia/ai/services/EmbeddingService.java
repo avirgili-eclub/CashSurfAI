@@ -11,6 +11,7 @@ import jakarta.transaction.Transactional;
 import lombok.extern.log4j.Log4j;
 import lombok.extern.log4j.Log4j2;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -32,6 +33,9 @@ public class EmbeddingService {
     private final LawDocumentRepository lawDocumentRepository;
     private final LawDocumentEmbeddingRepository lawDocumentEmbeddingRepository;
     private final RestTemplate restTemplate;
+
+    @Value("${spring.ai.ollama.embedding.model}")
+    private String LLM_MODEL;
 
     public EmbeddingService(LawDocumentRepository lawDocumentRepository, LawDocumentEmbeddingRepository lawDocumentEmbeddingRepository, RestTemplate restTemplate) {
         this.lawDocumentRepository = lawDocumentRepository;
@@ -88,7 +92,7 @@ public class EmbeddingService {
 
         // Crear un objeto con la estructura JSON
         Map<String, String> requestBodyMap = new HashMap<>();
-        requestBodyMap.put("model", "deepseek-r1:7b");
+        requestBodyMap.put("model", LLM_MODEL);
         requestBodyMap.put("prompt", text);
         // Llamada a la API de Ollama
         try {
