@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.py</groupId>
-    <artifactId>lawbyteia</artifactId>
+    <artifactId>cashsufai</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>lawbyteia</name>
-    <description>Demo project for Spring Boot</description>
+    <name>cashsufai</name>
+    <description>Ride your expenses with AI-driven voice, PDF, and manual tracking.</description>
     <url/>
     <licenses>
         <license/>
@@ -29,14 +29,14 @@
     <properties>
         <java.version>17</java.version>
         <spring-ai.version>1.0.0-M5</spring-ai.version>
-<!--        <spring-ai.version>1.0.0-SNAPSHOT</spring-ai.version>-->
+        <!--        <spring-ai.version>1.0.0-SNAPSHOT</spring-ai.version>-->
     </properties>
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
-<!--                <version>${spring-ai.version}</version>-->
+                <!--                <version>${spring-ai.version}</version>-->
                 <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
@@ -69,7 +69,7 @@
             <artifactId>jackson-databind</artifactId>
             <version>2.15.3</version>
         </dependency>
-<!--        LIBRERIA PARA TRABAJAR CON EXEL XLSX-->
+        <!--        LIBRERIA PARA TRABAJAR CON EXEL XLSX-->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
@@ -85,7 +85,7 @@
             <artifactId>pdfbox</artifactId>
             <version>3.0.1</version>
         </dependency>
-<!--        LIBRERIA PARA HACER OCR CON SPRING -->
+        <!--        LIBRERIA PARA HACER OCR CON SPRING -->
         <dependency>
             <groupId>net.sourceforge.tess4j</groupId>
             <artifactId>tess4j</artifactId>
