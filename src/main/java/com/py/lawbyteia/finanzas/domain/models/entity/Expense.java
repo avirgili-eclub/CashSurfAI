@@ -10,7 +10,7 @@ public class Expense {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private double amount;
+    private String amount;
     private LocalDate date;
     private String description;
     private String category;
@@ -19,7 +19,7 @@ public class Expense {
     // Constructores
     public Expense() {}
 
-    public Expense(double amount, LocalDate date, String description, String category, Long userId) {
+    public Expense(String amount, LocalDate date, String description, String category, Long userId) {
         this.amount = amount;
         this.date = date;
         this.description = description;
@@ -30,8 +30,8 @@ public class Expense {
     // Getters y Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public double getAmount() { return amount; }
-    public void setAmount(double amount) { this.amount = amount; }
+    public String getAmount() { return amount; }
+    public void setAmount(String amount) { this.amount = amount; }
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate date) { this.date = date; }
     public String getDescription() { return description; }

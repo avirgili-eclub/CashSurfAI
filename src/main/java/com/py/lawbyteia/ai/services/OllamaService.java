@@ -1,5 +1,6 @@
 package com.py.lawbyteia.ai.services;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.py.lawbyteia.ai.domain.dto.OllamaEmbeddingResponse;
@@ -14,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +26,8 @@ import java.util.Map;
 @Log4j2
 public class OllamaService {
     private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper(); // Para parsear JSON
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS); // Para parsear JSON
     private final String OLLAMA_URL = "http://localhost:11434/api/generate"; // Ollama por defecto corre en este puerto
 
     @Value("${spring.ai.ollama.embedding.model}")
@@ -78,16 +82,20 @@ public class OllamaService {
      * Construye un prompt optimizado para analizar facturas
      */
     private String buildInvoiceParsingPrompt(String invoiceText) {
-        return "Extrae el monto, fecha, descripción y categoría de esta factura y devuélvelo en formato JSON. Usa estas reglas:\n" +
-                "- Monto: Busca 'Total', '$', o números con decimales.\n" +
+        return "Extrae el monto, fecha, descripción y categoría de esta factura y devuélvelo SOLO como un objeto JSON, sin texto adicional, explicaciones ni delimitadores como ```json o ```. Usa estas reglas:\n" +
+                "- Monto: Busca 'Total', '$', o números con decimales y devuélvelo como un número sin separadores de miles ni puntos (ej. 22000 en lugar de 22.000).\n" +
                 "- Fecha: Busca formatos como 'dd/mm/yyyy' o 'dd-mm-yyyy'.\n" +
                 "- Descripción: El nombre del comercio o una línea representativa.\n" +
                 "- Categoría: Deduce según el contexto (comida, transporte, servicios, otros).\n" +
-                "Ejemplo:\n" +
+                "Ejemplos:\n" +
                 "```\n" +
                 "Supermercado XYZ\n" +
                 "Fecha: 03/03/2025\n" +
-                "Total: $7.50\n" +
+                "Total: $4.000,00\n" +
+                "```\n" +
+                "Supermercado XYZ\n" +
+                "Fecha: 03/03/2025\n" +
+                "Total: PYG 4.000\n" +
                 "```\n" +
                 "Respuesta esperada:\n" +
                 "```json\n" +
@@ -104,22 +112,29 @@ public class OllamaService {
      */
     private Expense parseAIResponse(String aiResponse) {
         try {
-            JsonNode json = objectMapper.readTree(aiResponse);
-            JsonNode responseNode = json.get("response"); // Ollama devuelve un campo "response" en el JSON
+            // Limpiar la respuesta para eliminar delimitadores residuales como ```
+            String cleanedJson = aiResponse.replaceAll("```", "").trim();
+            System.out.println("cleanedJson: " + cleanedJson); // Para depuración
 
-            if (responseNode != null && responseNode.isObject()) {
-                double amount = responseNode.get("amount").asDouble();
-                String dateStr = responseNode.get("date").asText();
-                java.time.LocalDate date = java.time.LocalDate.parse(dateStr, java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-                String description = responseNode.get("description").asText();
-                String category = responseNode.get("category").asText();
+            // Parsear el JSON limpio
+            JsonNode json = objectMapper.readTree(cleanedJson);
+
+            if (json.isObject()) {
+                // Tomar el monto como String directamente
+                String amount = json.get("monto").asText(); // Mantiene "22.000" como está
+
+                String dateStr = json.get("date").asText();
+                LocalDate date = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("dd/MM/yyyy")); // Formato con barras
+                String description = json.get("description").asText();
+                String category = json.get("category").asText();
 
                 return new Expense(amount, date, description, category, null);
+            } else {
+                throw new RuntimeException("El contenido del JSON no es un objeto válido");
             }
         } catch (Exception e) {
-            throw new RuntimeException("Error parsing AI response: " + e.getMessage());
+            throw new RuntimeException("Error parsing AI response: " + e.getMessage(), e);
         }
-        throw new RuntimeException("Invalid AI response format");
     }
 
     /**

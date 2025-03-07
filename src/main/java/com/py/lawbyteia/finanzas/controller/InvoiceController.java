@@ -223,20 +223,20 @@ public class InvoiceController {
         return expense;
     }
 
-    private double extractAmount(String text) {
+    private String extractAmount(String text) {
         // Buscar patrones como "$50.00", "Total: 25,50", etc.
         String[] lines = text.split("\n");
         for (String line : lines) {
             if (line.toLowerCase().contains("total") || line.matches(".*\\$\\d+.*") || line.matches(".*\\d+[.,]\\d{2}.*")) {
                 String cleaned = line.replaceAll("[^0-9.,]", "");
                 try {
-                    return Double.parseDouble(cleaned.replace(",", "."));
+                    return cleaned.replace(",", ".");
                 } catch (NumberFormatException e) {
                     // Ignorar si no se puede parsear
                 }
             }
         }
-        return 0.0; // Valor por defecto si no se encuentra
+        return "0.0"; // Valor por defecto si no se encuentra
     }
 
     private LocalDate extractDate(String text) {
