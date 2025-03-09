@@ -1,8 +1,19 @@
 package com.py.cashsurfai.finanzas.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.py.cashsurfai.ai.services.OllamaService;
+import com.py.cashsurfai.ai.services.SpeechToTextService;
 import com.py.cashsurfai.finanzas.domain.models.dto.ExpenseDTO;
+import com.py.cashsurfai.finanzas.domain.models.dto.ExpenseRequest;
+import com.py.cashsurfai.finanzas.domain.models.dto.SharedGroupRequest;
+import com.py.cashsurfai.finanzas.domain.models.entity.Category;
 import com.py.cashsurfai.finanzas.domain.models.entity.Expense;
+import com.py.cashsurfai.finanzas.domain.models.entity.SharedExpenseGroup;
+import com.py.cashsurfai.finanzas.domain.models.entity.User;
+import com.py.cashsurfai.finanzas.domain.repository.SharedExpenseGroupRepository;
+import com.py.cashsurfai.finanzas.domain.repository.UserRepository;
+import com.py.cashsurfai.finanzas.services.CategoryService;
 import com.py.cashsurfai.finanzas.services.ExpenseService;
 import lombok.extern.log4j.Log4j2;
 import net.sourceforge.tess4j.ITesseract;
@@ -20,6 +31,8 @@ import org.opencv.core.MatOfByte;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,11 +43,9 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/v1/invoice")
@@ -46,26 +57,143 @@ public class InvoiceController {
 
     @Autowired
     private OllamaService ollamaService;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private SharedExpenseGroupRepository sharedExpenseGroupRepository;
+    @Autowired
+    private CategoryService categoryService;
+    @Autowired
+    private SpeechToTextService speechToTextService;
 
     // Cargar las bibliotecas nativas de OpenCV al inicio (solo una vez)
     static {
         OpenCV.loadShared(); // Método recomendado por org.openpnp para cargar las bibliotecas nativas
     }
 
+    // 1. Entrada Manual
+    @PostMapping("/manual")
+    public ResponseEntity<ExpenseDTO> addManualExpense(@RequestBody ExpenseRequest expenseRequest) {
+        try {
+            User user = userRepository.findById(expenseRequest.getUserId())
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            Category category = categoryService.findOrCreateCategory(expenseRequest.getCategory(), "📝"); // Emoji por defecto
+            Expense expense = new Expense(
+                    expenseRequest.getAmount(),
+                    expenseRequest.getDate(),
+                    expenseRequest.getDescription(),
+                    category,
+                    user
+            );
+            expense.setSource("manual");
+            if (expenseRequest.getSharedGroupId() != null) {
+                SharedExpenseGroup group = sharedExpenseGroupRepository
+                        .findById(expenseRequest.getSharedGroupId())
+                        .orElseThrow(() -> new IllegalArgumentException("Shared group not found"));
+                expense.setSharedExpenseGroup(group);
+            }
+            ExpenseDTO savedExpense = expenseService.saveExpense(expense);
+            return ResponseEntity.ok(savedExpense);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+
+    //2. Entrada por PDF/Imagen
     @PostMapping("/upload-invoice")
     public ResponseEntity<String> uploadInvoice(
             @RequestParam("file") MultipartFile file,
             @RequestParam Long userId,
+            @RequestParam(value = "sharedGroupId", required = false) Long sharedGroupId,
             @RequestParam(defaultValue = "false") boolean useOpenCV) {
         try {
             String extractedText = extractTextFromFile(file, useOpenCV);
             Expense expense = ollamaService.parseInvoiceWithAI(extractedText);
-            expense.setUserId(userId);
-            //ExpenseDTO savedExpense = expenseService.saveExpense(expense);
+            expense.setUser(new User());
+            if (sharedGroupId != null) {
+                SharedExpenseGroup group = sharedExpenseGroupRepository
+                        .findById(sharedGroupId)
+                        .orElseThrow(() -> new IllegalArgumentException("Shared group not found"));
+                expense.setSharedExpenseGroup(group);
+            }
+            ExpenseDTO savedExpense = expenseService.saveExpense(expense);
 //            return ResponseEntity.ok("Gasto registrado: " + savedExpense.getDescription());
-            return ResponseEntity.ok("Gasto registrado: " + expense.getDescription());
+            return ResponseEntity.ok("Gasto registrado: " + savedExpense);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error procesando la factura: " + e.getMessage());
+        }
+    }
+
+
+    // 3. Entrada por Voz
+    @PostMapping(value = "/voice", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<String> addVoiceExpense(@RequestParam("audio") MultipartFile audioFile,
+                                                      @RequestParam("userId") Long userId,
+                                                      @RequestParam(value = "sharedGroupId", required = false) Long sharedGroupId) {
+        try {
+            String transcript = speechToTextService.convertAudioToText(audioFile.getBytes());
+            if (transcript == null || transcript.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            }
+
+            String aiResponse = ollamaService.parseVoiceWithAI(transcript); // Nuevo método en OllamaService
+
+            JsonNode jsonArray = new ObjectMapper().readTree(aiResponse);
+
+            if (!jsonArray.isArray()) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Respuesta de IA no es un arreglo");
+            }
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+            SharedExpenseGroup group = null;
+            if (sharedGroupId != null) {
+                group = sharedExpenseGroupRepository.findById(sharedGroupId)
+                        .orElseThrow(() -> new IllegalArgumentException("Shared group not found"));
+            }
+
+            List<Expense> expenses = new ArrayList<>();
+
+            for (JsonNode json : jsonArray) {
+                Category category = categoryService.findOrCreateCategory(
+                        json.get("categoria").asText(),
+                        json.get("descripcion").asText(),
+                        json.get("emoji").asText(),
+                        user
+                );
+
+                Expense expense = new Expense(
+                        json.get("monto").asText(),
+                        json.get("fecha").asText().equals("hoy") ? LocalDate.now() : LocalDate.parse(json.get("fecha").asText(), DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                        json.get("descripcion").asText(),
+                        category,
+                        user
+                );
+                expense.setSource("voice");
+                if (group != null) {
+                    expense.setSharedExpenseGroup(group);
+                }
+                expenses.add(expense);
+            }
+
+            List<ExpenseDTO> savedExpenses = expenseService.saveAllExpenses(expenses); // Guardar todos de una vez
+            return ResponseEntity.ok("Registros guardados: " + savedExpenses.toString());
+        } catch (IOException e) {
+            log.error("Error processing voice expense", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    // 4. Crear Grupo Compartido
+    @PostMapping("/shared-group")
+    public ResponseEntity<SharedExpenseGroup> createSharedExpenseGroup(@RequestBody SharedGroupRequest request) {
+        try {
+            SharedExpenseGroup group = expenseService.createSharedExpenseGroup(request.getName(), request.getUserIds());
+            return ResponseEntity.ok(group);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
     }
 
@@ -73,6 +201,7 @@ public class InvoiceController {
     public ResponseEntity<List<ExpenseDTO>> getExpenses(@RequestParam Long userId) {
         return ResponseEntity.ok(expenseService.getExpensesByUser(userId));
     }
+
 
     // Método unificado para extraer texto según el tipo de archivo
     private String extractTextFromFile(MultipartFile file, boolean useOpenCV) throws Exception {
@@ -210,76 +339,4 @@ public class InvoiceController {
         return baos.toByteArray();
     }*/
 
-
-    private Expense parseInvoiceText(String text) {
-        Expense expense = new Expense();
-
-        // Extraer datos con expresiones regulares o reglas simples
-        expense.setAmount(extractAmount(text));
-        expense.setDate(extractDate(text));
-        expense.setDescription(extractDescription(text));
-        expense.setCategory(categorizeExpense(expense.getDescription()));
-
-        return expense;
-    }
-
-    private String extractAmount(String text) {
-        // Buscar patrones como "$50.00", "Total: 25,50", etc.
-        String[] lines = text.split("\n");
-        for (String line : lines) {
-            if (line.toLowerCase().contains("total") || line.matches(".*\\$\\d+.*") || line.matches(".*\\d+[.,]\\d{2}.*")) {
-                String cleaned = line.replaceAll("[^0-9.,]", "");
-                try {
-                    return cleaned.replace(",", ".");
-                } catch (NumberFormatException e) {
-                    // Ignorar si no se puede parsear
-                }
-            }
-        }
-        return "0.0"; // Valor por defecto si no se encuentra
-    }
-
-    private LocalDate extractDate(String text) {
-        // Buscar fechas en formatos como "dd/mm/yyyy", "mm-dd-yyyy", etc.
-        String[] lines = text.split("\n");
-        for (String line : lines) {
-            Matcher matcher = Pattern.compile("\\d{2}[/-]\\d{2}[/-]\\d{4}").matcher(line);
-            if (matcher.find()) {
-                String dateStr = matcher.group();
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                try {
-                    return LocalDate.parse(dateStr.replace("-", "/"), formatter);
-                } catch (DateTimeParseException e) {
-                    // Probar otro formato si falla
-                    formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
-                    return LocalDate.parse(dateStr.replace("-", "/"), formatter);
-                }
-            }
-        }
-        return LocalDate.now(); // Fecha actual como fallback
-    }
-
-    private String extractDescription(String text) {
-        // Tomar la primera línea que parezca un nombre de comercio o descripción
-        String[] lines = text.split("\n");
-        for (String line : lines) {
-            if (line.trim().length() > 5 && !line.toLowerCase().contains("total") && !line.matches(".*\\d+[.,]\\d{2}.*")) {
-                return line.trim();
-            }
-        }
-        return "Gasto sin descripción";
-    }
-
-    private String categorizeExpense(String description) {
-        // Reglas simples para categorizar
-        description = description.toLowerCase();
-        if (description.contains("restaurant") || description.contains("comida") || description.contains("supermercado")) {
-            return "comida";
-        } else if (description.contains("uber") || description.contains("taxi") || description.contains("transporte")) {
-            return "transporte";
-        } else if (description.contains("luz") || description.contains("agua") || description.contains("internet")) {
-            return "servicios";
-        }
-        return "otros";
-    }
 }

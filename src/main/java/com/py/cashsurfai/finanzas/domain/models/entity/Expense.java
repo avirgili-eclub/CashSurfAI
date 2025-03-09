@@ -2,42 +2,63 @@ package com.py.cashsurfai.finanzas.domain.models.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "expenses")
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class Expense {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String amount;
+
+    @Column(nullable = false)
     private LocalDate date;
+
+    @Column(nullable = false)
     private String description;
-    private String category;
-    private Long userId;
 
-    // Constructores
-    public Expense() {}
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
 
-    public Expense(String amount, LocalDate date, String description, String category, Long userId) {
-        this.amount = amount;
-        this.date = date;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column
+    private String invoiceNumber;
+
+    @Column
+    private String notes;
+
+    @Column
+    private String source;
+
+    @Column
+    private LocalDate createdAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shared_expense_group_id")
+    private SharedExpenseGroup sharedExpenseGroup; // Relación opcional con grupo compartido
+
+    public Expense(String monto, LocalDate localDate, String description, Category category, User user) {
+        this.amount = monto;
+        this.date = localDate;
         this.description = description;
         this.category = category;
-        this.userId = userId;
+        this.user = user;
     }
-
-    // Getters y Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getAmount() { return amount; }
-    public void setAmount(String amount) { this.amount = amount; }
-    public LocalDate getDate() { return date; }
-    public void setDate(LocalDate date) { this.date = date; }
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
 }

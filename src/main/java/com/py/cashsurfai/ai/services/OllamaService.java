@@ -3,9 +3,14 @@ package com.py.cashsurfai.ai.services;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.py.cashsurfai.finanzas.domain.models.entity.Category;
 import com.py.cashsurfai.finanzas.domain.models.entity.Expense;
+import com.py.cashsurfai.finanzas.domain.models.entity.User;
+import com.py.cashsurfai.finanzas.domain.repository.UserRepository;
+import com.py.cashsurfai.finanzas.services.CategoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -14,11 +19,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -26,8 +34,15 @@ import java.util.Map;
 public class OllamaService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper()
-            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS); // Para parsear JSON
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            //TODO: PROBABLEMENTE HAY QUE ELIMINAR .configure
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false); // Para parsear JSON
     private final String OLLAMA_URL = "http://localhost:11434/api/generate"; // Ollama por defecto corre en este puerto
+
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private CategoryService categoryService;
 
     @Value("${spring.ai.ollama.embedding.model}")
     private String LLM_MODEL;
@@ -48,7 +63,8 @@ public class OllamaService {
         try {
             ResponseEntity<String> response = restTemplate.postForEntity(OLLAMA_URL, requestEntity, String.class);
             if (response.getStatusCode().is2xxSuccessful()) {
-                return extractResponseContent(response.getBody());
+                String responseBody = new String(response.getBody().getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8);
+                return extractResponseContent(responseBody);
             } else {
                 throw new RuntimeException("Error en la respuesta de Ollama: " + response.getStatusCode());
             }
@@ -75,6 +91,62 @@ public class OllamaService {
         String prompt = buildInvoiceParsingPrompt(invoiceText);
         String aiResponse = askOllama(LLM_MODEL, prompt);
         return parseAIResponse(aiResponse);
+    }
+
+    /**
+     * Método para analizar transcripciones de voz y devolver JSON con emoji
+     */
+    public String parseVoiceWithAI(String transcript) {
+        String prompt = "Reescribe el siguiente texto hablado si está mal escrito o si necesita más claridad.\n" +
+                "Luego, analiza el texto mejorado y extrae cada gasto mencionado como un objeto JSON separado. Devuelve SOLO un arreglo JSON con todos los gastos, sin texto adicional, explicaciones ni delimitadores como ```json o ```.\n" +
+                "Sigue estas reglas:\n" +
+                "- Identifica cada gasto como una combinación de monto y descripción en el texto (ej. '12000 por una cocacola', '3000 en Pulp').\n" +
+                "- Monto: Busca números con o sin separadores (ej. '22000' o '50000 guaranies') y devuélvelo como entero.\n" +
+                "- Fecha: Busca referencias como 'hoy', 'ayer', o fechas específicas (default a hoy si no hay) y dame en formato dd/MM/yyyy.\n" +
+                "- Descripción: Identifica el propósito o artículo del gasto (ej. 'una cocacola', 'unos lapices de colores', combustible, almuerzo, etc.). Si no hay descripción clara, usa 'otros'.\n" +
+                "- Categoría: Deduce según el contexto (comida, transporte, servicios, utiles, juegos, etc.).\n" +
+                "- Emoji: Asigna un emoji relacionado con la categoría como una secuencia Unicode escapada (ej. Emoji: '\\uD83C\\uDF54' para comida 🍔, Emoji: '\\uD83C\\uDFAE' para juegos 🎮).\n" +
+                "Ejemplo de resultado si hubiera solo un gasto, si hubieran varios agregar todos al array []:\n" +
+                "[{\n" +
+                "    \"monto\": 12000,\n" +
+                "    \"fecha\": \"08/03/2025\",\n" +
+                "    \"descripcion\": \"una cocacola\",\n" +
+                "    \"categoria\": \"bebidas\",\n" +
+                "    \"emoji\": \"\\uD83C\\uDF79\"\n" +
+                "}]\n" +
+                "Texto a extraer: \"" + transcript + "\"";
+
+        String rawResponse = askOllama(LLM_MODEL, prompt);
+
+        log.info("Raw AI Response: {}", rawResponse);
+
+        // Limpiar backticks y cualquier texto adicional como ```json
+        String cleanedResponse = rawResponse
+                .replace("```json", "")  // Elimina el inicio del bloque Markdown
+                .replace("```", "")      // Elimina cualquier otro backtick
+                .trim();                 // Elimina espacios o saltos de línea extras
+
+        // Usar regex para extraer el arreglo JSON entre [ y ]
+        String jsonArray = extractJsonArray(rawResponse);
+        if (jsonArray == null) {
+            log.error("No se encontró un arreglo JSON válido en la respuesta: {}", rawResponse);
+            throw new IllegalStateException("No se pudo extraer un arreglo JSON válido de la respuesta de IA");
+        }
+
+        log.info("Cleaned JSON Array: {}", jsonArray);
+        return jsonArray;
+    }
+
+    private String extractJsonArray(String rawResponse) {
+        // Regex para capturar todo entre el primer [ y el último ], incluyendo anidaciones
+        String regex = "\\[(?:[^\\[\\]]|\\[(?:[^\\[\\]]|\\[[^\\[\\]]*\\])*\\])*\\]";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(rawResponse);
+
+        if (matcher.find()) {
+            return matcher.group(0); // Devuelve el primer match encontrado
+        }
+        return null; // Si no hay match, retorna null y manejamos el error
     }
 
     /**
@@ -121,13 +193,13 @@ public class OllamaService {
             if (json.isObject()) {
                 // Tomar el monto como String directamente
                 String amount = json.get("monto").asText(); // Mantiene "22.000" como está
-
                 String dateStr = json.get("date").asText();
                 LocalDate date = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("dd/MM/yyyy")); // Formato con barras
                 String description = json.get("description").asText();
-                String category = json.get("category").asText();
+                User user = userRepository.findById(1L).orElseThrow();
+                Category category = categoryService.findOrCreateCategory(json.get("category").asText(), "🎮");
 
-                return new Expense(amount, date, description, category, null);
+                return new Expense(amount, date, description, category, user);
             } else {
                 throw new RuntimeException("El contenido del JSON no es un objeto válido");
             }
@@ -179,4 +251,6 @@ public class OllamaService {
                     ", predice el gasto mensual promedio y posibles categorías altas para el próximo mes en formato JSON.";
             return askOllama(LLM_MODEL, prompt);
         }
+
+
     }

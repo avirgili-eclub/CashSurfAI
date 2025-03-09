@@ -45,7 +45,7 @@ public class ExcelExportService {
                 row.createCell(0).setCellValue(expense.getAmount());
                 row.createCell(1).setCellValue(expense.getDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
                 row.createCell(2).setCellValue(expense.getDescription());
-                row.createCell(3).setCellValue(expense.getCategory());
+//                row.createCell(3).setCellValue(expense.getCategory());
             }
 
             // Establecer anchos fijos para columnas (en unidades de 1/256 de un carácter)
@@ -82,7 +82,7 @@ public class ExcelExportService {
                 row.createCell(0).setCellValue(expense.getAmount());
                 row.createCell(1).setCellValue(expense.getDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
                 row.createCell(2).setCellValue(expense.getDescription());
-                row.createCell(3).setCellValue(expense.getCategory());
+//                row.createCell(3).setCellValue(expense.getCategory());
             }
 
             // Ajustar tamaño de columnas
