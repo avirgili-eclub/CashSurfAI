@@ -87,26 +87,28 @@ public class OllamaService {
     /**
      * Método para analizar facturas y devolver un Expense en formato JSON
      */
-    public Expense parseInvoiceWithAI(String invoiceText) {
+    public String parseInvoiceWithAI(String invoiceText) {
         String prompt = buildInvoiceParsingPrompt(invoiceText);
-        String aiResponse = askOllama(LLM_MODEL, prompt);
-        return parseAIResponse(aiResponse);
+        return askOllama(LLM_MODEL, prompt);
     }
 
     /**
      * Método para analizar transcripciones de voz y devolver JSON con emoji
      */
     public String parseVoiceWithAI(String transcript) {
-        String prompt = "Reescribe el siguiente texto hablado si está mal escrito o si necesita más claridad.\n" +
-                "Luego, analiza el texto mejorado y extrae cada gasto mencionado como un objeto JSON separado. Devuelve SOLO un arreglo JSON con todos los gastos, sin texto adicional, explicaciones ni delimitadores como ```json o ```.\n" +
+        String prompt = "Reescribe el siguiente texto si está mal escrito o si necesita más claridad.\n" +
+                "Luego, analiza el texto mejorado y extrae cada gasto mencionado como un objeto JSON separado. \n" +
+                "Devuelve exclusivamente UN arreglo JSON válido, sin texto adicional, sin explicaciones ni delimitadores como ```json o ```. \n" +
                 "Sigue estas reglas:\n" +
                 "- Identifica cada gasto como una combinación de monto y descripción en el texto (ej. '12000 por una cocacola', '3000 en Pulp').\n" +
                 "- Monto: Busca números con o sin separadores (ej. '22000' o '50000 guaranies') y devuélvelo como entero.\n" +
                 "- Fecha: Busca referencias como 'hoy', 'ayer', o fechas específicas (default a hoy si no hay) y dame en formato dd/MM/yyyy.\n" +
-                "- Descripción: Identifica el propósito o artículo del gasto (ej. 'una cocacola', 'unos lapices de colores', combustible, almuerzo, etc.). Si no hay descripción clara, usa 'otros'.\n" +
+                "- Descripción: Identifica el propósito o artículo del gasto o comentario del articulo (ej. 'una cocacola', 'unos lapices de colores', combustible, almuerzo, etc.). Si no hay descripción clara, usa 'otros'.\n" +
                 "- Categoría: Deduce según el contexto (comida, transporte, servicios, utiles, juegos, etc.).\n" +
-                "- Emoji: Asigna un emoji relacionado con la categoría como una secuencia Unicode escapada (ej. Emoji: '\\uD83C\\uDF54' para comida 🍔, Emoji: '\\uD83C\\uDFAE' para juegos 🎮).\n" +
-                "Ejemplo de resultado si hubiera solo un gasto, si hubieran varios agregar todos al array []:\n" +
+                "- Emoji: Asigna un emoji relacionado con la categoría como una secuencia Unicode escapada (ej. Emoji: '\\uD83C\\uDF54' para comida 🍔, Emoji: '\\uD83C\\uDFAE' para juegos 🎮), si no por default pon '\\ud83e\\uddfe'.\n" +
+                "Ejemplo de respuesta esperada **(solo el JSON, sin texto adicional ni delimitadores como ```json o ```):**\n"+
+                "si hubieran varios agregar todos al array []:\n" +
+                "```json" +
                 "[{\n" +
                 "    \"monto\": 12000,\n" +
                 "    \"fecha\": \"08/03/2025\",\n" +
@@ -138,8 +140,30 @@ public class OllamaService {
     }
 
     private String extractJsonArray(String rawResponse) {
-        // Regex para capturar todo entre el primer [ y el último ], incluyendo anidaciones
-        String regex = "\\[(?:[^\\[\\]]|\\[(?:[^\\[\\]]|\\[[^\\[\\]]*\\])*\\])*\\]";
+        int start = rawResponse.indexOf("```json");
+        int end = rawResponse.lastIndexOf("```");
+
+        if (start != -1 && end != -1 && start < end) {
+            return rawResponse.substring(start + 7, end).trim(); // +7 para saltar "```json\n"
+        }
+        return null; // Si no hay JSON, retorna null
+    }
+
+//    private String extractJsonArray(String rawResponse) {
+//        // Regex para capturar todo entre el primer [ y el último ], incluyendo anidaciones
+//        String regex = "\\[(?:[^\\[\\]]|\\[(?:[^\\[\\]]|\\[[^\\[\\]]*\\])*\\])*\\]";
+//        Pattern pattern = Pattern.compile(regex);
+//        Matcher matcher = pattern.matcher(rawResponse);
+//
+//        if (matcher.find()) {
+//            return matcher.group(0); // Devuelve el primer match encontrado
+//        }
+//        return null; // Si no hay match, retorna null y manejamos el error
+//    }
+
+    private String extractJsonObject(String rawResponse) {
+        // Regex para capturar todo entre el primer { y el último }, incluyendo anidaciones
+        String regex = "\\{(?:[^\\{\\}]+|\\{(?:[^\\{\\}]+|\\{[^\\{\\}]*\\})*\\})*\\}";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(rawResponse);
 
@@ -153,11 +177,14 @@ public class OllamaService {
      * Construye un prompt optimizado para analizar facturas
      */
     private String buildInvoiceParsingPrompt(String invoiceText) {
-        return "Extrae el monto, fecha, descripción y categoría de esta factura y devuélvelo SOLO como un objeto JSON, sin texto adicional, explicaciones ni delimitadores como ```json o ```. Usa estas reglas:\n" +
-                "- Monto: Busca 'Total', '$', o números con decimales y devuélvelo como un número sin separadores de miles ni puntos (ej. 22000 en lugar de 22.000).\n" +
-                "- Fecha: Busca formatos como 'dd/mm/yyyy' o 'dd-mm-yyyy'.\n" +
-                "- Descripción: El nombre del comercio o una línea representativa.\n" +
+        return "Reescribe el siguiente texto si está mal escrito o si necesita más claridad.\n" +
+                "Luego, analiza el texto mejorado y extrae el monto, fecha, descripción y categoría de esta factura y devuélve SOLO un objeto JSON, sin texto adicional, sin explicaciones ni delimitadores como ```json o ```.\n" +
+                "Sigue estas reglas:\n" +
+                "- Monto: Busca 'Total', '$', o números con o sin separadores y devuélvelo como entero sin separadores de miles.\n" +
+                "- Fecha: Busca formatos como 'dd/mm/yyyy' o 'dd-mm-yyyy' y transforma para dame en formato dd/MM/yyyy.\n" +
+                "- Descripción: Identifica el propósito o artículo del gasto (ej. 'una cocacola', 'unos lapices de colores', combustible, almuerzo, etc.). Si no hay descripción clara, usa 'otros'.\n" +
                 "- Categoría: Deduce según el contexto (comida, transporte, servicios, otros).\n" +
+                "- Emoji: Asigna un emoji relacionado con la categoría como una secuencia Unicode escapada (ej. Emoji: '\\uD83C\\uDF54' para comida 🍔, Emoji: '\\uD83C\\uDFAE' para juegos 🎮).\n" +
                 "Ejemplos:\n" +
                 "```\n" +
                 "Supermercado XYZ\n" +
@@ -170,7 +197,7 @@ public class OllamaService {
                 "```\n" +
                 "Respuesta esperada:\n" +
                 "```json\n" +
-                "{\"monto\": 4.000, \"date\": \"03/03/2025\", \"description\": \"Supermercado XYZ\", \"category\": \"comida\"}\n" +
+                "{\"monto\": 4000, \"fecha\": \"03/03/2025\", \"descripcion\": \"Supermercado XYZ\", \"categoria\": \"comida\", \"emoji\": \"\\uD83C\\uDF79\"}\n" +
                 "```\n" +
                 "Texto de la factura:\n" +
                 "```\n" +
@@ -181,11 +208,13 @@ public class OllamaService {
     /**
      * Parsea la respuesta de Ollama a un objeto Expense
      */
-    private Expense parseAIResponse(String aiResponse) {
+    public Expense parseAIResponse(String aiResponse, Long userId) {
         try {
             // Limpiar la respuesta para eliminar delimitadores residuales como ```
             String cleanedJson = aiResponse.replaceAll("```", "").trim();
             System.out.println("cleanedJson: " + cleanedJson); // Para depuración
+
+            cleanedJson = extractJsonObject(cleanedJson);
 
             // Parsear el JSON limpio
             JsonNode json = objectMapper.readTree(cleanedJson);
@@ -193,12 +222,16 @@ public class OllamaService {
             if (json.isObject()) {
                 // Tomar el monto como String directamente
                 String amount = json.get("monto").asText(); // Mantiene "22.000" como está
-                String dateStr = json.get("date").asText();
+                String dateStr = json.get("fecha").asText();
                 LocalDate date = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("dd/MM/yyyy")); // Formato con barras
-                String description = json.get("description").asText();
-                User user = userRepository.findById(1L).orElseThrow();
-                Category category = categoryService.findOrCreateCategory(json.get("category").asText(), "🎮");
-
+                String description = json.get("descripcion").asText();
+                User user = userRepository.findById(userId).orElseThrow();
+                Category category = categoryService.findOrCreateCategory(
+                        json.get("categoria").asText(),
+                        json.get("descripcion").asText(),
+                        json.get("emoji").asText(),
+                        user
+                );
                 return new Expense(amount, date, description, category, user);
             } else {
                 throw new RuntimeException("El contenido del JSON no es un objeto válido");

@@ -109,8 +109,10 @@ public class InvoiceController {
             @RequestParam(defaultValue = "false") boolean useOpenCV) {
         try {
             String extractedText = extractTextFromFile(file, useOpenCV);
-            Expense expense = ollamaService.parseInvoiceWithAI(extractedText);
-            expense.setUser(new User());
+            String aiResponse = ollamaService.parseInvoiceWithAI(extractedText);
+
+            Expense expense = ollamaService.parseAIResponse(aiResponse, userId);
+
             if (sharedGroupId != null) {
                 SharedExpenseGroup group = sharedExpenseGroupRepository
                         .findById(sharedGroupId)
@@ -129,8 +131,8 @@ public class InvoiceController {
     // 3. Entrada por Voz
     @PostMapping(value = "/voice", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> addVoiceExpense(@RequestParam("audio") MultipartFile audioFile,
-                                                      @RequestParam("userId") Long userId,
-                                                      @RequestParam(value = "sharedGroupId", required = false) Long sharedGroupId) {
+                                                  @RequestParam("userId") Long userId,
+                                                  @RequestParam(value = "sharedGroupId", required = false) Long sharedGroupId) {
         try {
             String transcript = speechToTextService.convertAudioToText(audioFile.getBytes());
             if (transcript == null || transcript.isEmpty()) {
@@ -229,7 +231,7 @@ public class InvoiceController {
 
         // Opcional: Preprocesar la imagen para mejorar la precisión
         // Preprocesamiento: Escala de grises y aumento de contraste
-        BufferedImage processedImage = Scalr.resize(image,  Scalr.Method.QUALITY, 300); // Redimensionar a 300 DPI
+        BufferedImage processedImage = Scalr.resize(image, Scalr.Method.QUALITY, 300); // Redimensionar a 300 DPI
         // Aquí podrías añadir más filtros si necesitas
 
         return tesseract.doOCR(processedImage);
