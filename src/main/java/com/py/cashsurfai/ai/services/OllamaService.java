@@ -97,7 +97,8 @@ public class OllamaService {
      */
     public String parseVoiceWithAI(String transcript) {
         String prompt = "Reescribe el siguiente texto si está mal escrito o si necesita más claridad.\n" +
-                "Luego, analiza el texto mejorado y extrae cada gasto mencionado como un objeto JSON separado. \n" +
+                "Luego, analiza el texto mejorado y extrae cada gasto mencionado como un arreglo JSON con todos los gastos separado. \n" +
+                "un arreglo JSON con todos los gastos" +
                 "Devuelve exclusivamente UN arreglo JSON válido, sin texto adicional, sin explicaciones ni delimitadores como ```json o ```. \n" +
                 "Sigue estas reglas:\n" +
                 "- Identifica cada gasto como una combinación de monto y descripción en el texto (ej. '12000 por una cocacola', '3000 en Pulp').\n" +
@@ -106,8 +107,8 @@ public class OllamaService {
                 "- Descripción: Identifica el propósito o artículo del gasto o comentario del articulo (ej. 'una cocacola', 'unos lapices de colores', combustible, almuerzo, etc.). Si no hay descripción clara, usa 'otros'.\n" +
                 "- Categoría: Deduce según el contexto (comida, transporte, servicios, utiles, juegos, etc.).\n" +
                 "- Emoji: Asigna un emoji relacionado con la categoría como una secuencia Unicode escapada (ej. Emoji: '\\uD83C\\uDF54' para comida 🍔, Emoji: '\\uD83C\\uDFAE' para juegos 🎮), si no por default pon '\\ud83e\\uddfe'.\n" +
-                "Ejemplo de respuesta esperada **(solo el JSON, sin texto adicional ni delimitadores como ```json o ```):**\n"+
-                "si hubieran varios agregar todos al array []:\n" +
+//                "Ejemplo de respuesta esperada **(Un arreglo [] JSON valido, sin texto adicional ni delimitadores)**\n"+
+                "Se espera un arreglo de json valido sin comentarios, ejemplo respuesta:\n"+
                 "```json" +
                 "[{\n" +
                 "    \"monto\": 12000,\n" +
@@ -140,15 +141,41 @@ public class OllamaService {
     }
 
     private String extractJsonArray(String rawResponse) {
-        int start = rawResponse.indexOf("```json");
-        int end = rawResponse.lastIndexOf("```");
+        int level = 0;
+        int startIndex = -1;
 
-        if (start != -1 && end != -1 && start < end) {
-            return rawResponse.substring(start + 7, end).trim(); // +7 para saltar "```json\n"
+        // Recorre el string caracter por caracter
+        for (int i = 0; i < rawResponse.length(); i++) {
+            char c = rawResponse.charAt(i);
+
+            if (c == '[') {
+                level++;
+                if (level == 1) {
+                    startIndex = i; // Marca el inicio del array principal
+                }
+            } else if (c == ']') {
+                level--;
+                if (level == 0 && startIndex != -1) {
+                    // Hemos encontrado el array completo
+                    return rawResponse.substring(startIndex, i + 1);
+                }
+            }
         }
-        return null; // Si no hay JSON, retorna null
+
+        return null; // No se encontró un array JSON válido
     }
 
+//    private String extractJsonArray(String rawResponse) {
+//        int start = rawResponse.indexOf("```json");
+//        int end = rawResponse.lastIndexOf("```");
+//
+//        if (start != -1 && end != -1 && start < end) {
+//            return rawResponse.substring(start + 7, end).trim(); // +7 para saltar "```json\n"
+//        }
+//        return null; // Si no hay JSON, retorna null
+//    }
+
+    //ANTIGUO
 //    private String extractJsonArray(String rawResponse) {
 //        // Regex para capturar todo entre el primer [ y el último ], incluyendo anidaciones
 //        String regex = "\\[(?:[^\\[\\]]|\\[(?:[^\\[\\]]|\\[[^\\[\\]]*\\])*\\])*\\]";
