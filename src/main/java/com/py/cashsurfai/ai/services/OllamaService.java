@@ -108,7 +108,7 @@ public class OllamaService {
                 "- Categoría: Deduce según el contexto (comida, transporte, servicios, utiles, juegos, etc.).\n" +
                 "- Emoji: Asigna un emoji relacionado con la categoría como una secuencia Unicode escapada (ej. Emoji: '\\uD83C\\uDF54' para comida 🍔, Emoji: '\\uD83C\\uDFAE' para juegos 🎮), si no por default pon '\\ud83e\\uddfe'.\n" +
 //                "Ejemplo de respuesta esperada **(Un arreglo [] JSON valido, sin texto adicional ni delimitadores)**\n"+
-                "Se espera un arreglo de json valido sin comentarios, ejemplo respuesta:\n"+
+                "Se espera un arreglo de json valido sin comentarios \\\\, ejemplo respuesta:\n"+
                 "```json" +
                 "[{\n" +
                 "    \"monto\": 12000,\n" +
@@ -140,53 +140,16 @@ public class OllamaService {
         return jsonArray;
     }
 
+
     private String extractJsonArray(String rawResponse) {
-        int level = 0;
-        int startIndex = -1;
+        int start = rawResponse.indexOf("```json");
+        int end = rawResponse.lastIndexOf("```");
 
-        // Recorre el string caracter por caracter
-        for (int i = 0; i < rawResponse.length(); i++) {
-            char c = rawResponse.charAt(i);
-
-            if (c == '[') {
-                level++;
-                if (level == 1) {
-                    startIndex = i; // Marca el inicio del array principal
-                }
-            } else if (c == ']') {
-                level--;
-                if (level == 0 && startIndex != -1) {
-                    // Hemos encontrado el array completo
-                    return rawResponse.substring(startIndex, i + 1);
-                }
-            }
+        if (start != -1 && end != -1 && start < end) {
+            return rawResponse.substring(start + 7, end).trim(); // +7 para saltar "```json\n"
         }
-
-        return null; // No se encontró un array JSON válido
+        return null; // Si no hay JSON, retorna null
     }
-
-//    private String extractJsonArray(String rawResponse) {
-//        int start = rawResponse.indexOf("```json");
-//        int end = rawResponse.lastIndexOf("```");
-//
-//        if (start != -1 && end != -1 && start < end) {
-//            return rawResponse.substring(start + 7, end).trim(); // +7 para saltar "```json\n"
-//        }
-//        return null; // Si no hay JSON, retorna null
-//    }
-
-    //ANTIGUO
-//    private String extractJsonArray(String rawResponse) {
-//        // Regex para capturar todo entre el primer [ y el último ], incluyendo anidaciones
-//        String regex = "\\[(?:[^\\[\\]]|\\[(?:[^\\[\\]]|\\[[^\\[\\]]*\\])*\\])*\\]";
-//        Pattern pattern = Pattern.compile(regex);
-//        Matcher matcher = pattern.matcher(rawResponse);
-//
-//        if (matcher.find()) {
-//            return matcher.group(0); // Devuelve el primer match encontrado
-//        }
-//        return null; // Si no hay match, retorna null y manejamos el error
-//    }
 
     private String extractJsonObject(String rawResponse) {
         // Regex para capturar todo entre el primer { y el último }, incluyendo anidaciones
@@ -259,7 +222,13 @@ public class OllamaService {
                         json.get("emoji").asText(),
                         user
                 );
-                return new Expense(amount, date, description, category, user);
+                return Expense.builder()
+                        .amount(amount)
+                        .date(date)
+                        .description(description)
+                        .category(category)
+                        .user(user)
+                        .build();
             } else {
                 throw new RuntimeException("El contenido del JSON no es un objeto válido");
             }

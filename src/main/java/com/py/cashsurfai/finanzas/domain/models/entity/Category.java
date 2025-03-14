@@ -11,8 +11,8 @@ import lombok.Setter;
         uniqueConstraints = @UniqueConstraint(columnNames = {"name", "user_id"}))
 @Getter
 @Setter
-@NoArgsConstructor // Constructor sin parámetros
-@AllArgsConstructor // Constructor con todos los parámetros (id, name, emoji)
+@NoArgsConstructor
+@AllArgsConstructor
 public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,7 +21,7 @@ public class Category {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String description;
 
     @Column(nullable = false)
@@ -35,6 +35,13 @@ public class Category {
     public Category(String name, String emoji) {
         this.name = name;
         this.emoji = emoji;
+    }
+
+    public Category(String name, String emoji, User user) {
+        this.name = name;
+
+        this.emoji = emoji;
+        this.user = user;
     }
 
     public Category(String name, String description, String emoji, User user) {

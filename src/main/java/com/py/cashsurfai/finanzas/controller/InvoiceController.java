@@ -2,6 +2,7 @@ package com.py.cashsurfai.finanzas.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.py.cashsurfai.ai.services.ExpenseAnalysisService;
 import com.py.cashsurfai.ai.services.OllamaService;
 import com.py.cashsurfai.ai.services.SpeechToTextService;
 import com.py.cashsurfai.finanzas.domain.models.dto.ExpenseDTO;
@@ -54,9 +55,10 @@ public class InvoiceController {
 
     @Autowired
     private ExpenseService expenseService;
-
     @Autowired
     private OllamaService ollamaService;
+    @Autowired
+    private ExpenseAnalysisService expenseAnalysisService;
     @Autowired
     private UserRepository userRepository;
     @Autowired
@@ -78,13 +80,13 @@ public class InvoiceController {
             User user = userRepository.findById(expenseRequest.getUserId())
                     .orElseThrow(() -> new IllegalArgumentException("User not found"));
             Category category = categoryService.findOrCreateCategory(expenseRequest.getCategory(), "📝"); // Emoji por defecto
-            Expense expense = new Expense(
-                    expenseRequest.getAmount(),
-                    expenseRequest.getDate(),
-                    expenseRequest.getDescription(),
-                    category,
-                    user
-            );
+            Expense expense =  Expense.builder()
+                    .user(user)
+                    .category(category)
+                    .description(expenseRequest.getDescription())
+                    .amount(expenseRequest.getAmount())
+                    .date(expenseRequest.getDate())
+                    .build();
             expense.setSource("manual");
             if (expenseRequest.getSharedGroupId() != null) {
                 SharedExpenseGroup group = sharedExpenseGroupRepository
@@ -109,9 +111,9 @@ public class InvoiceController {
             @RequestParam(defaultValue = "false") boolean useOpenCV) {
         try {
             String extractedText = extractTextFromFile(file, useOpenCV);
-            String aiResponse = ollamaService.parseInvoiceWithAI(extractedText);
+            String aiResponse = expenseAnalysisService.parseInvoiceWithAI(extractedText);
 
-            Expense expense = ollamaService.parseAIResponse(aiResponse, userId);
+            Expense expense = expenseAnalysisService.parseAIResponse(aiResponse, userId);
 
             if (sharedGroupId != null) {
                 SharedExpenseGroup group = sharedExpenseGroupRepository
@@ -139,7 +141,7 @@ public class InvoiceController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
             }
 
-            String aiResponse = ollamaService.parseVoiceWithAI(transcript); // Nuevo método en OllamaService
+            String aiResponse = expenseAnalysisService.parseVoiceWithAI(transcript);
 
             JsonNode jsonArray = new ObjectMapper().readTree(aiResponse);
 
@@ -161,18 +163,18 @@ public class InvoiceController {
             for (JsonNode json : jsonArray) {
                 Category category = categoryService.findOrCreateCategory(
                         json.get("categoria").asText(),
-                        json.get("descripcion").asText(),
                         json.get("emoji").asText(),
                         user
                 );
+                Expense expense = Expense.builder()
+                        .user(user)
+                        .amount(json.get("monto").asText())
+                        .date(json.get("fecha").asText().equals("hoy") ? LocalDate.now() : LocalDate.parse(json.get("fecha").asText(), DateTimeFormatter.ofPattern("dd/MM/yyyy")))
+                        .description(json.get("descripcion").asText())
+                        .category(category)
+                        .sharedExpenseGroup(group)
+                        .build();
 
-                Expense expense = new Expense(
-                        json.get("monto").asText(),
-                        json.get("fecha").asText().equals("hoy") ? LocalDate.now() : LocalDate.parse(json.get("fecha").asText(), DateTimeFormatter.ofPattern("dd/MM/yyyy")),
-                        json.get("descripcion").asText(),
-                        category,
-                        user
-                );
                 expense.setSource("voice");
                 if (group != null) {
                     expense.setSharedExpenseGroup(group);

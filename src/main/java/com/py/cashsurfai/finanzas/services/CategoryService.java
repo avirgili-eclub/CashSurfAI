@@ -25,6 +25,14 @@ public class CategoryService {
                 });
     }
 
+    public Category findOrCreateCategory(String name, String emoji, User user) {
+        return categoryRepository.findByNameAndUser(name, user)
+                .orElseGet(() -> {
+                    Category newCategory = new Category(name, emoji, user);
+                    return categoryRepository.save(newCategory);
+                });
+    }
+
 
     public Category findOrCreateCategory(String name, String emoji) {
         return categoryRepository.findByName(name)

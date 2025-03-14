@@ -3,10 +3,7 @@ package com.py.cashsurfai.finanzas.domain.models.entity;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDate;
 
@@ -16,6 +13,7 @@ import java.time.LocalDate;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class Expense {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -53,12 +51,4 @@ public class Expense {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shared_expense_group_id")
     private SharedExpenseGroup sharedExpenseGroup; // Relación opcional con grupo compartido
-
-    public Expense(String monto, LocalDate localDate, String description, Category category, User user) {
-        this.amount = monto;
-        this.date = localDate;
-        this.description = description;
-        this.category = category;
-        this.user = user;
-    }
 }

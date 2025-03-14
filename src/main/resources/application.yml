@@ -1,4 +1,7 @@
 spring:
+  application:
+    name: cashi
+
   datasource:
     url: jdbc:postgresql://localhost:5432/money_tracker  # Usa 'db' en lugar de 'localhost'
     username: postgres
@@ -21,7 +24,13 @@ spring:
       embedding:
 #        model: deepseek-r1:7b
         model: llama3.1:8b
-#    vectorstore:
+    openai:
+      api-key: ${OPEN_AI_API_KEY}
+      model: gpt-4o-mini
+      chat:
+        options:
+          model: gpt-4o-mini
+  #    vectorstore:
 #      pgvector:
 #      index-type: HNSW
 #      distance-type: COSINE_DISTANCE
